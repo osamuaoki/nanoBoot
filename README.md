@@ -6,7 +6,7 @@ This repository contains the source code for the USB HID-based bootloader for AT
 
 The name *nanoBoot* comes from the fact that the compiled source fits in the smallest available boot size on the ATMegaXXu4 devices, 256 words or 512 bytes. The code is based on Dean Camera's [LUFA](https://github.com/abcminiuser/lufa) USB implementation, but it is **EXTREMELY** streamlined, size-optimized and targeted for the [ATmega16U4](http://www.atmel.com/devices/atmega16u4.aspx) and [ATmega32u4](http://www.atmel.com/devices/atmega32u4.aspx) devices.
 
-Initial and major portion of manual assembly code optimization efforts were performed by [volium](https://github.com/volium) and published as the original [nanoBoot](https://github.com/volium/nanoBoot).  Further tweakings were performed by osamu to allow arbitrary setting for CKDIV8 fuse and published here on `devel` branch in the forked [nanoBoot](https://github.com/osamuaoki/nanoBoot) repository to allow arbitrary CKDIV8 settings.
+Initial and major portion of manual assembly code optimization efforts were performed by [volium](https://github.com/volium) and published as the original [nanoBoot](https://github.com/volium/nanoBoot).  Further tweakings were performed by osamu to allow arbitrary setting for CKDIV8 fuse and published here on `devel` branch in the forked [nanoBoot](https://github.com/osamuaoki/nanoBoot) repository to allow arbitrary CKDIV8 settings and to turn on and off LED.
 
 There are a few hardware assumptions to the fuse settings which make this bootloader as compact as possible.
 

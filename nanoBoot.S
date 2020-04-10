@@ -47,6 +47,11 @@
 ; lfuse memory = 0x5F
 ; hfuse memory = 0xDF
 ; efuse memory = 0xC4
+;
+; LED is on D6 for Teensy 2.0 compatible board (Adjust for other board)
+#define LED_BIT   6
+#define LED_CONF  DDRD
+#define LED_PORT  PORTD
 
 ; SW assumptions:
 ; All Endpoints are being configured sequentially in ascending order,
@@ -343,6 +348,8 @@ run_application:                                ; We get here if the cause of th
       jmp         0                             ; Simply jump to 0x0000 (application) IMPORTANT NOTE!! This CANNOT be an 'rjmp'!!
 
 run_bootloader:
+      sbi         _SFR_IO_ADDR(LED_CONF), LED_PIN ; Set IO register as output for LED
+      sbi         _SFR_IO_ADDR(LED_PORT), LED_PIN ; Set IO register as ON for LED
       set                                       ; Initialize BootLoaderActive flag (T flag in SREG)
 
 
@@ -534,6 +541,7 @@ exit_bootloader:
 
       ; NOTE!! This part of the code assumes MCUSR has already been cleared
 
+      cbi         _SFR_IO_ADDR(LED_PORT), LED_PIN ; Set IO register as OFF for LED
       ; Enable WDT, ~250 ms timeout (force a timeout to reset the AVR)
       ldi         r17, _BV(WDE) | _BV(WDP2)     ; Load r17 with the value needed to set the desired Watchdog Configuration (WDCE = 0, not set!)
                                                 ; Write the WDE and Watchdog prescaler bits (WDP); System Reset Mode (WDE = 1) and ~250 ms timeout (WDP2 = 1)

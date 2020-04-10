@@ -133,6 +133,14 @@
 #define oUEBCHX      (UEBCHX  - USB_BASE)
 #define oUEINT       (UEINT   - USB_BASE)   ; This register has the bits to identify which endpoint triggered an interrupt
 
+;
+; To facilitate coding, we will also use the Y register to point to the first Extended IO register;
+; We can then use LDD / STD (Y+oU....) to address USB registers (USB_BASE + relative offset)
+; (These are used only in start-up and exit routines when USB is not acrtive)
+#define EIO_BASE     WDTCSR
+#define oWDTCSR      (WDTCSR  - EIO_BASE)
+#define oCLKPR       (CLKPR   - EIO_BASE)
+
 
 #include <avr/io.h>
 
@@ -302,10 +310,15 @@ main:
 ; =================================================================
       ; Set R3=rONE
       inc         rONE                          ; Initialize rONE  (R3 register = one)
-      ; Set XH=R27 to 0 = hi8(Register) for addressing IO registers R18-... XL to be frequently changed
+      ; Set XH=R27 to 0 = hi8(any register)
+      ;     XL=18 for registers R18-...
+      clr         XH                            ; 0 = hi8(register, io, eio) Clear XH Register
       ;
-      ; Set YH=R29 to 0 = hi8(USB_BASE) for addressing any 64 bytes in ZL specified section started in first 256 bytes of IO memory including extended ones in 0x00-0xff.
-      ldi         YH, 0                         ; 0 = hi8(USB_BASE)
+      ; Set YH=R29 to 0 = hi8(any extended io) for addressing extended io for any 64 bytes in YL specified section.
+      ;     YL=lo8(EIO_BASE)  initial
+      ;     YL=lo8(USB_BASE)  main
+      ;     YL=lo8(EIO_BASE)  exit
+      clr         YH                            ; 0 = hi8(USB_BASE)
       ; Set ZH=R31 to 0x7E = hi8(device_descriptor), hi8(config_descriptor), ... set this according to bootloader location
       ;     We know ALL descriptors are at the beginning of the bootloader, in the reset_vector space,
       ;     and by inspection we can determine that they all share the same high byte of the address (0x7EXX)
@@ -316,6 +329,7 @@ main:
       in          rMCUSR, _SFR_IO_ADDR(MCUSR)   ; Load MCU Status Register to rMCUSR
       out         _SFR_IO_ADDR(MCUSR), rZERO    ; Load MCU Status Register with rZERO (clear reset flags, particularly clear WDRF in MCUSR), necessary before disabling the Watchdog
 
+      ldi         YL, lo8(EIO_BASE)             ; Load YL with EIO_BASE (initial)
       ; We MUST disable the Watchdog Timer first, otherwise it will remain enabled and will keep resetting the system, so...
       ; Disable Watchdog Timer
       mov         r17,  rZERO                   ; Load r17 with zero to disable the Watchdog Timer completely
@@ -373,8 +387,8 @@ run_bootloader:
       ; rjmp        1b                            ; Jump to 1Backwards if the External Clock On bit (EXTON) is not set (External Clk not running)
 
       ldi         r17, _BV(CLKPCE)              ; Load r17 with the value needed to "unlock" the prescaler of the Clock; Clock Prescaler Change Enable bit (CLKPCE) set to one, all other bits set to zero.
-      sts         CLKPR, r17                    ; Store r17 to the Clock Prescaler Register (CLKPR)
-      sts         CLKPR, rZERO                  ; Store rZERO to the Clock Prescaler Register (CLKPR), setting CLKPS3, CLKPS2, CLKPS1 and CLKPS0 to zero (Clock Division Factor = 1; System Clock is 16 MHz)
+      std         Y+oCLKPR, r17                   ; Store r17 to the Clock Prescaler Register (CLKPR)
+      std         Y+oCLKPR, rZERO                 ; Store rZERO to the Clock Prescaler Register (CLKPR), setting CLKPS3, CLKPS2, CLKPS1 and CLKPS0 to zero (Clock Division Factor = 1; System Clock is 16 MHz)
 
 ; =================================================================
 ; = Basic device setup is NOW COMPLETE!!
@@ -524,6 +538,7 @@ exit_bootloader:
       ldi         r17, _BV(WDE) | _BV(WDP2)     ; Load r17 with the value needed to set the desired Watchdog Configuration (WDCE = 0, not set!)
                                                 ; Write the WDE and Watchdog prescaler bits (WDP); System Reset Mode (WDE = 1) and ~250 ms timeout (WDP2 = 1)
 
+      ldi         YL, lo8(EIO_BASE)             ; Load YL with EIO_BASE (exit)
       rcall       set_watchdog_timer            ; Call the subroutine that sets the wathdog timer with the values loaded in r17
 
    ; for (;;);
@@ -610,7 +625,7 @@ USB_Endpoint_ISR:
       ; ldd         reg_wLengthH,      Y+oUEDATX  ; wLengthH
 
       ; Shorter version
-      clr         XH                            ; Clear XH Register
+      ;clr         XH                           ; Clear XH Register (constant=0)
       ldi         XL, 18                        ; Load XL Register with number 18 (this will be used to refer to r18)
       ldi         r16, 8                        ; Load r16 with number 8 (the number of fields <SETUP Packets> we need to read)
 load: ldd         r0, Y+oUEDATX                 ; Load r0 with the value in the USB Endpoint Data Register (UEDATX)
@@ -938,14 +953,16 @@ set_watchdog_timer:
       ; IMPORTANT!! This function assumes the correct values for the WDTCSR register
       ; configuration are already loaded onto r17.
 
+      ; always set YH to hi(EIO_BASE) before calling
+
       wdr                                       ; Reset the Watchdog Timer
 
       ldi         r16, _BV(WDCE) | _BV(WDE)     ; Load r16 with the value needed to "unlock" the Watchdog Timer Configuration
                                                 ; Write a logic one to the Watchdog Change Enable bit (WDCE) and Watchdog System Reset Enable (WDE)
-      sts         WDTCSR, r16                   ; Store r16 to the Watchdog Timer Control Register (WDTCSR)
+      std         Y+oWDTCSR, r16                ; Store r16 to the Watchdog Timer Control Register (WDTCSR)
 
       ; Load the desired configuration to the Watchdog Timer Control Register (WDTCSR)
-      sts         WDTCSR, r17                   ; Store r17 to the Watchdog Timer Control Register (WDTCSR)
+      std         Y+oWDTCSR, r17                ; Store r17 to the Watchdog Timer Control Register (WDTCSR)
 
       ret
 

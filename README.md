@@ -40,6 +40,8 @@ Required packages on Debian GNU/Linux system: `gcc-avr`, `avr-libc`, `binutils-a
     * hfuse memory = 0xDF (EESAVE=1, BOOTRST=1)
     * efuse memory = 0xC4 (=0xF4, BOD=2.4V)
 
+* LED on D6 port (Configurable in #define)
+
 ## Usage
 
 Please install this bootloader `nanoBoot.hex` using the ISP connected programmer.
@@ -55,13 +57,18 @@ You can start this bootloader by connecting the board to the PC with USB cable a
  $ watch lsusb
 ```
 
-If this bootloader is started, you should see "Atmel".  (Please note, this bootloader doesn't blink LED.)
+If this bootloader is started, you should see "Atmel".
+
+Please note, this bootloader turns on LED upon starting.
+
+(Sometimes LED is on but the loader sign as "Atmel" doesn't show up on `lsusb`. If so, try more reset button presses.)
 
 Then program MCU with, e.g., a `LED.hex` firmware as:
 
 ```
  $ sudo hid_bootloader_cli -mmcu=atmega32u4 -v LED.hex
 ```
+Please note, this bootloader turns off LED upon finish programming.
 
 ## Documentation
 

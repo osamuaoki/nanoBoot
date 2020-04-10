@@ -59,11 +59,21 @@
 ; R2  =  0 (common constant, use instead of traditional R1)
 ; R3  =  1 (common constant, number is used constantly in the code)
 ; R4  =  copy of MCUSR (MCU Status Register)
-; Y   =  USB_BASE
+;     =  8  (3 occurances)
+;     =  0x12 (3 occurances)
+;     =  0x18 (2 occurances)
+;     =  0x40 (2 occurances)
+; R5-R13             unused
+; R14:R15            copy of page address R30:R31  Z
+; R16                passing parameter
+; R17                passing parameter
+; R18-R25            USB communication
+; R26:R27  X         Pointer to R18... = 0018...
+; R28:R29  Y         USB_BASE = UDCON = 0x00E0
+; R30:R31  Z         64 bytes sequence in bootloader starting 0x7Exx
 
 ; Global Flags:
 ; T Flag (SREG) = BootLoaderActive
-
 
 ; Global Defines:
 
@@ -287,20 +297,30 @@ hid_report_descriptor:
 ; =================================================================
 
 main:
+; =================================================================
+; = Initialize constants
+; =================================================================
+      ; Set R3=rONE
       inc         rONE                          ; Initialize rONE  (R3 register = one)
-
+      ; Set XH=R27 to 0 = hi8(Register) for addressing IO registers R18-... XL to be frequently changed
+      ;
+      ; Set YH=R29 to 0 = hi8(USB_BASE) for addressing any 64 bytes in ZL specified section started in first 256 bytes of IO memory including extended ones in 0x00-0xff.
+      ldi         YH, 0                         ; 0 = hi8(USB_BASE)
+      ; Set ZH=R31 to 0x7E = hi8(device_descriptor), hi8(config_descriptor), ... set this according to bootloader location
+      ;     We know ALL descriptors are at the beginning of the bootloader, in the reset_vector space,
+      ;     and by inspection we can determine that they all share the same high byte of the address (0x7EXX)
+      ;     This is for addressing any 64 bytes in ZL specified section started in first 256 bytes of bootloader.
+      ldi         ZH, 0x7E                      ; Load ZH with the most significant 8 bits of the descriptors address (0x7E)
+      ; Set R4=rMCUSR (a copy of the MCUSR)
       ; Create a copy of the MCUSR (MCU Status Register) as soon as possible
       in          rMCUSR, _SFR_IO_ADDR(MCUSR)   ; Load MCU Status Register to rMCUSR
       out         _SFR_IO_ADDR(MCUSR), rZERO    ; Load MCU Status Register with rZERO (clear reset flags, particularly clear WDRF in MCUSR), necessary before disabling the Watchdog
 
       ; We MUST disable the Watchdog Timer first, otherwise it will remain enabled and will keep resetting the system, so...
       ; Disable Watchdog Timer
-      ldi         r16, _BV(WDCE) | _BV(WDE)     ; Load r16 with the value needed to "unlock" the Watchdog Timer Configuration
-                                                ; Write a logic one to the Watchdog Change Enable bit (WDCE) and Watchdog System Reset Enable (WDE)
-
       mov         r17,  rZERO                   ; Load r17 with zero to disable the Watchdog Timer completely
 
-      rcall       set_watchdog_timer            ; Call the subroutine that sets the wathdog timer with the values loaded in r16 and r17
+      rcall       set_watchdog_timer            ; Call the subroutine that sets the wathdog timer with the values loaded in r17
 
 ; check_reset_flags:
       sbrs        rMCUSR, EXTRF                 ; Skip the next instruction if EXTRF is set (if External Reset Flag, skip next instruction, go to run_bootloader)
@@ -317,7 +337,7 @@ run_bootloader:
 ; =================================================================
 
 ; Move the IRQ Vector Table to the beginning of the Boot Flash Space
-; ONLY if the BOOT_ADDRESS is not zero!
+; ONLY if the BOOT_ADDRESS is not zero! (Normally: 0x7E00)
 
 #if (BOOT_ADDRESS != 0)
       ldi         r17, _BV(IVSEL)               ; Load r17 with the value needed to set the Interrupt Vectors to the beginning of the Boot Loader section of the Flash
@@ -333,7 +353,7 @@ run_bootloader:
 ; = UNNECESARY SINCE ATMEGA32U4 DOES THIS AUTOMATICALLY!
 ; =================================================================
 
-; Set up the stack (TODO: is this necessary?), we won't be using the stack anyway
+; Set up the stack (TODO: is this necessary?), we won't be using the stack anyway--> !!! Yes we use "rcall" !!!
       ; ldi         r16, hi8(RAMEND)              ; Load r16 with the most significant 8 bits of RAMEND
       ; ldi         r17, lo8(RAMEND)              ; Load r17 with the least significant 8 bits of RAMEND
       ; out         _SFR_IO_ADDR(SPH), r16        ; Set the Stack Pointer High byte (SPH) with the value in r16
@@ -366,7 +386,8 @@ run_bootloader:
 ; =================================================================
 
       ldi         YL, lo8(USB_BASE)             ; Load YL with the least significant 8 bits of USB_BASE
-      ldi         YH, hi8(USB_BASE)             ; Load YH with the most significant 8 bits of USB_BASE
+      ; YH is pre-set constant
+;      ldi         YH, hi8(USB_BASE)             ; Load YH with the most significant 8 bits of USB_BASE
 
       ; =================================================================
       ; = From LUFA simplified - USB_Init:_start
@@ -500,13 +521,10 @@ exit_bootloader:
       ; NOTE!! This part of the code assumes MCUSR has already been cleared
 
       ; Enable WDT, ~250 ms timeout (force a timeout to reset the AVR)
-      ldi         r16, _BV(WDCE) | _BV(WDE)     ; Load r16 with the value needed to "unlock" the Watchdog Timer Configuration
-                                                ; Write a logic one to the Watchdog Change Enable bit (WDCE) and Watchdog System Reset Enable (WDE)
-
       ldi         r17, _BV(WDE) | _BV(WDP2)     ; Load r17 with the value needed to set the desired Watchdog Configuration (WDCE = 0, not set!)
                                                 ; Write the WDE and Watchdog prescaler bits (WDP); System Reset Mode (WDE = 1) and ~250 ms timeout (WDP2 = 1)
 
-      rcall       set_watchdog_timer            ; Call the subroutine that sets the wathdog timer with the values loaded in r16 and r17
+      rcall       set_watchdog_timer            ; Call the subroutine that sets the wathdog timer with the values loaded in r17
 
    ; for (;;);
 final_loop:
@@ -777,10 +795,8 @@ GET_DESCRIPTOR:
       ; Just get the descriptor address into
       ; [RAMPZ:]Z, and the length into r16
 
-      ; We know ALL descriptors are at the beginning of the bootloader, in the reset_vector space,
-      ; and by inspection we can determine that they all share the same high byte of the address (0x7EXX)
-      ldi         ZH, 0x7E    ; Load ZH with the most significant 8 bits of the descriptors address (0x7E)
-
+      ; ZH: preset constant pointing to the beginning of the bootloader
+ 
       ; High byte of wValue for GET_DESCRIPTOR transactions specifies Descriptor Type
       cpi         reg_wValueH, 0x01             ; Compare high byte of wValue with value 1;
       breq        send_device_descriptor        ; If high byte of wValue is 0x01 (Device Descriptor), jump to handle that
@@ -920,12 +936,15 @@ EP_ISR_END:
 set_watchdog_timer:
 
       ; IMPORTANT!! This function assumes the correct values for the WDTCSR register
-      ; configuration are already loaded onto r16 and 17.
+      ; configuration are already loaded onto r17.
 
       wdr                                       ; Reset the Watchdog Timer
 
-      ; Load the desired configuration to the Watchdog Timer Control Register (WDTCSR)
+      ldi         r16, _BV(WDCE) | _BV(WDE)     ; Load r16 with the value needed to "unlock" the Watchdog Timer Configuration
+                                                ; Write a logic one to the Watchdog Change Enable bit (WDCE) and Watchdog System Reset Enable (WDE)
       sts         WDTCSR, r16                   ; Store r16 to the Watchdog Timer Control Register (WDTCSR)
+
+      ; Load the desired configuration to the Watchdog Timer Control Register (WDTCSR)
       sts         WDTCSR, r17                   ; Store r17 to the Watchdog Timer Control Register (WDTCSR)
 
       ret

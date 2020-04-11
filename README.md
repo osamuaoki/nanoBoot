@@ -1,12 +1,14 @@
-# nanoBoot
+# nanoBoot w/LED
 
 <!-- not used by osamu: [![Build Status](https://travis-ci.org/volium/nanoBoot.svg?branch=master)](https://travis-ci.org/volium/nanoBoot) -->
 
-This repository contains the source code for the USB HID-based bootloader for ATmegaXXU4 family of devices.
+This repository contains the source code for the USB HID-based bootloader for ATmegaXXU4 family of devices with LED support.
 
 The name *nanoBoot* comes from the fact that the compiled source fits in the smallest available boot size on the ATMegaXXu4 devices, 256 words or 512 bytes. The code is based on Dean Camera's [LUFA](https://github.com/abcminiuser/lufa) USB implementation, but it is **EXTREMELY** streamlined, size-optimized and targeted for the [ATmega16U4](http://www.atmel.com/devices/atmega16u4.aspx) and [ATmega32u4](http://www.atmel.com/devices/atmega32u4.aspx) devices.
 
-Initial and major portion of manual assembly code optimization efforts were performed by [volium](https://github.com/volium) and published as the original [nanoBoot](https://github.com/volium/nanoBoot).  Further tweakings were performed by osamu to allow arbitrary setting for CKDIV8 fuse and to turn on and off LED based on bootloader state.  The updated source and pre-compiled HEX file are published here on `devel` branch in the forked [nanoBoot](https://github.com/osamuaoki/nanoBoot) repository.
+Initial and major portion of manual assembly code optimization efforts were performed by [volium](https://github.com/volium) and published as the original [nanoBoot](https://github.com/volium/nanoBoot).
+
+Further tweaking was performed by osamu to allow arbitrary setting for **CKDIV8** fuse and to turn on and off **LED** based on bootloader state.  The updated source and pre-compiled HEX file are published here on `devel` branch in the forked [nanoBoot w/LED](https://github.com/osamuaoki/nanoBoot) repository.
 
 There are a few hardware assumptions to the fuse settings which keep this bootloader as compact as possible.
 
@@ -44,7 +46,7 @@ Required packages on Debian GNU/Linux system: `gcc-avr`, `avr-libc`, `binutils-a
 
 ## Usage
 
-Please install this bootloader `nanoBoot.hex` using the ISP connected programmer.
+Please install this bootloader `nanoBoot.hex` using the ISP connected programmer (e.g. AVRISP mkII).
 
 ```
 $ sudo avrdude -v -p atmega32u4 -c avrisp2 -Pusb -e -U flash:w:nanoBoot.hex \
@@ -72,7 +74,7 @@ Please note, this bootloader turns off LED upon finish programming.
 
 (Pressing the RESET button during active bootloader execution seems to halt the bootloader.  This seems to be the reason you need to press the RESET button again.)
 
-For your convenience, precompiled HEX file and associated scripts are provided under the `precompile` directory.
+For your convenience, pre-compiled HEX file and associated scripts are provided under the `precompile` directory.
 
 ## Configuration
 
@@ -89,8 +91,13 @@ In `nanoBoot.S`:
 
 ## Documentation
 
-The documentation is part of the source code itself, and even though some people may find it extremely verbose, I think that's better than lack of documentation; after all, assembly can be hard to read sometimes... ohhh yes, in case that was not expected, this is all written in pure GAS (GNU Assembly), compiled using the [Atmel AVR 8-bit Toolchain](http://www.atmel.com/tools/atmelavrtoolchainforwindows.aspx).
+"The documentation is part of the source code itself, and even though some people may find it extremely verbose, I think that's better than lack of documentation; after all, assembly can be hard to read sometimes... ohhh yes, in case that was not expected, this is all written in pure GAS (GNU Assembly), compiled using the [Atmel AVR 8-bit Toolchain](http://www.atmel.com/tools/atmelavrtoolchainforwindows.aspx)." (per volium)
+
+"The elegant programming techniques presented by volium with detailed comments were very enlightening for me to get started. It's delightful for me to read.  Don't miss it!"  (per osamu)
 
  * [AVR Instruction Set Manual](http://ww1.microchip.com/downloads/en/devicedoc/atmel-0856-avr-instruction-set-manual.pdf)
  * [ATmega16U4, ATmega32U4 - Complete Datasheet](http://ww1.microchip.com/downloads/en/devicedoc/atmel-7766-8-bit-avr-atmega16u4-32u4_datasheet.pdf)
- * [AT90USB1286, AT90USB1287, AT90USB646, AT90USB647 - Complete Datasheet](http://ww1.microchip.com/downloads/en/DeviceDoc/doc7593.pdf) -- to be ported :-)  PLL initialization needs to be adjusted.  RAMPZ need to be used.  Code can be 1024B long.
+ * [AT90USB1286, AT90USB1287, AT90USB646, AT90USB647 - Complete Datasheet](http://ww1.microchip.com/downloads/en/DeviceDoc/doc7593.pdf) -- to be ported :-)
+     * PLL initialization needs to be adjusted.
+     * Code to be installed can be larger than 64 KB (16-bit address space in byte). -->  `RAMPZ` need to be used.
+     * Communucation protocol for usb64* and usb128* MCUs pass `(address >>8)` instead of `(address)` from `hid_bootloader_cli`.

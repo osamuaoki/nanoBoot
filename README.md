@@ -6,9 +6,9 @@ This repository contains the source code for the USB HID-based bootloader for AT
 
 The name *nanoBoot* comes from the fact that the compiled source fits in the smallest available boot size on the ATMegaXXu4 devices, 256 words or 512 bytes. The code is based on Dean Camera's [LUFA](https://github.com/abcminiuser/lufa) USB implementation, but it is **EXTREMELY** streamlined, size-optimized and targeted for the [ATmega16U4](http://www.atmel.com/devices/atmega16u4.aspx) and [ATmega32u4](http://www.atmel.com/devices/atmega32u4.aspx) devices.
 
-Initial and major portion of manual assembly code optimization efforts were performed by [volium](https://github.com/volium) and published as the original [nanoBoot](https://github.com/volium/nanoBoot).  Further tweakings were performed by osamu to allow arbitrary setting for CKDIV8 fuse and published here on `devel` branch in the forked [nanoBoot](https://github.com/osamuaoki/nanoBoot) repository to allow arbitrary CKDIV8 settings and to turn on and off LED.
+Initial and major portion of manual assembly code optimization efforts were performed by [volium](https://github.com/volium) and published as the original [nanoBoot](https://github.com/volium/nanoBoot).  Further tweakings were performed by osamu to allow arbitrary setting for CKDIV8 fuse and to turn on and off LED based on bootloader state.  The updated source and pre-compiled HEX file are published here on `devel` branch in the forked [nanoBoot](https://github.com/osamuaoki/nanoBoot) repository.
 
-There are a few hardware assumptions to the fuse settings which make this bootloader as compact as possible.
+There are a few hardware assumptions to the fuse settings which keep this bootloader as compact as possible.
 
 <!-- It's very likely that a few sections can be rewritten to make it even smaller, and the ultimate goal is to support EEPROM programming as well, although that would require changes to the host code. -->
 
@@ -16,7 +16,7 @@ There are a few hardware assumptions to the fuse settings which make this bootlo
 
 <!-- The current version (2020-04-03) is supported as-is in the 'hid_bootloader_loader.py' script that ships with [LUFA-151115](https://github.com/abcminiuser/lufa/releases/tag/LUFA-151115), and is exactly 512 bytes long. -->
 
-The current version (2020-04-10) is tested manually with the compiled `hid_bootloader_cli.c` from [LUFA](https://github.com/abcminiuser/lufa) 597fbf47c ("Merge pull request #156 from jessexm/dragndrop", 2020-02-11) on Debian GNU/Linux 10 (buster).
+The current version (2020-04-11) is tested manually with the compiled `hid_bootloader_cli` from `hid_bootloader_cli.c` in [LUFA](https://github.com/abcminiuser/lufa) 597fbf47c ("Merge pull request #156 from jessexm/dragndrop", 2020-02-11) on Debian GNU/Linux 10 (buster).  Pre-compiled `hid_bootloader_cli` can be found in [osamu's LUFA branch](https://github.com/osamuaoki/lufa/tree/teensy2/Bootloaders/result).
 
 Required packages on Debian GNU/Linux system: `gcc-avr`, `avr-libc`, `binutils-avr`, `libusb-dev`, `build-essential`, `git`
 

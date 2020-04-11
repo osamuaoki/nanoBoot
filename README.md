@@ -72,6 +72,8 @@ Please note, this bootloader turns off LED upon finish programming.
 
 (Pressing the RESET button during active bootloader execution seems to halt the bootloader.  This seems to be the reason you need to press the RESET button again.)
 
+For your convenience, precompiled HEX file and associated scripts are provided under the `precompile` directory.
+
 ## Configuration
 
 Only the first configuration choice is tested with a Teensy 2.0 compatible board.

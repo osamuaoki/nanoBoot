@@ -1,0 +1,4 @@
+#!/bin/sh -e
+# 512B 2.2V CKDIV8 DF  / 5F
+sudo avrdude -v -p atmega32u4 -c avrisp2 -Pusb -e -U flash:w:nanoBoot.hex \
+     -U lfuse:w:0x5f:m -U hfuse:w:0xdf:m -U efuse:w:0xc5:m

@@ -48,12 +48,38 @@
 ; hfuse memory = 0xDF
 ; efuse memory = 0xC4
 ;
+; LED -- Configure this for the LED
+;
 ; LED is on D6 for Teensy 2.0 compatible board (Adjust for other board)
 #define LED_BIT   6
 #define LED_CONF  DDRD
 #define LED_PORT  PORTD
+#define LED_ON    sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
+#define LED_OFF   cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
+
+; LED is on C7 for Leonardo/Nano compatible board (Adjust for other board)
+;#define LED_BIT   7
+;#define LED_CONF  DDRC
+;#define LED_PORT  PORTC
+;#define LED_ON    sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
+;#define LED_OFF   cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
+
+; LED (TX) is on D5 for Pro Micro compatible board (Adjust for other board)
+;#define LED_BIT   5
+;#define LED_CONF  DDRD
+;#define LED_PORT  PORTD
+;#define LED_ON    cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
+;#define LED_OFF   sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
+
+; LED (RX) is on B3 for Pro Micro compatible board (Adjust for other board)
+;#define LED_BIT   3
+;#define LED_CONF  DDRB
+;#define LED_PORT  PORTB
+;#define LED_ON    cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
+;#define LED_OFF   sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
 
 ; SW assumptions:
+
 ; All Endpoints are being configured sequentially in ascending order,
 ; but, since we only use EP0, this is not that important
 
@@ -326,7 +352,7 @@ main:
       ;     We know ALL descriptors are at the beginning of the bootloader, in the reset_vector space,
       ;     and by inspection we can determine that they all share the same high byte of the address (0x7EXX)
       ;     This is for addressing any 64 bytes in ZL specified section started in first 256 bytes of bootloader.
-      ldi         ZH, 0x7E                      ; Load ZH with the most significant 8 bits of the descriptors address (0x7E)
+      ldi         ZH, hi8(BOOT_ADDRESS)         ; Load ZH with the most significant 8 bits of the descriptors address (0x7E if BOOT ADDRESS=0x7E00)
       ; Set R4=rMCUSR (a copy of the MCUSR)
       ; Create a copy of the MCUSR (MCU Status Register) as soon as possible
       in          rMCUSR, _SFR_IO_ADDR(MCUSR)   ; Load MCU Status Register to rMCUSR
@@ -467,17 +493,27 @@ run_bootloader:
       andi        r16, ~(_BV(FRZCLK))           ; The right value of USBCON is already in r16, just clear the Freeze Clock bit (FRZCLK)
       std         Y+oUSBCON, r16                ; Store r16 to the USB Configuration Register (USBCON)
 
+#if (F_CPU == 16000000)
       ; Enable USB PLL (USB_PLL_On)
       ; PLLCSR = (1 << PINDIV);
       ; PLLCSR = ((1 << PINDIV) | (1 << PLLE));
       ldi         r17, _BV(PINDIV)              ; Load r17 with the value needed to set the PLL input prescaler to generate the 8MHz input clock for the PLL
                                                 ; When using a 16MHz clock source, PINDIV PLL Input Prescaler (PINDIV bit 4) bit must be   set to 1 before enabling PLL R17=0x10
-                                                ; When using a  8MHz clock source, PINDIV PLL Input Prescaler (PINDIV bit 4) bit must be reset to 0 before enabling PLL
       out         _SFR_IO_ADDR(PLLCSR), r17     ; Store r17 to the PLL Control and Status Register (PLLCSR)
 
       ldi         r17, (_BV(PINDIV) | _BV(PLLE)); Load r17 with the value needed to enable the PLL, set PLL Enable bit (PLLE), we are also setting PINDIV to keep the PLL input prescaler configuration
       out         _SFR_IO_ADDR(PLLCSR), r17     ; Store r17 to the PLL Control and Status Register (PLLCSR)
+#endif
+#if (F_CPU == 8000000)
+      ; Enable USB PLL (USB_PLL_On)
+      ; PLLCSR = (1 << PINDIV);
+      ; PLLCSR = ((1 << PINDIV) | (1 << PLLE));
+                                                ; When using a  8MHz clock source, PINDIV PLL Input Prescaler (PINDIV bit 4) bit must be reset to 0 before enabling PLL
+      out         _SFR_IO_ADDR(PLLCSR), rZERO   ; Store r17 to the PLL Control and Status Register (PLLCSR)
 
+      ldi         r17, (_BV(PLLE))              ; Load r17 with the value needed to enable the PLL, set PLL Enable bit (PLLE), we are also resetting PINDIV to keep the PLL input prescaler configuration
+      out         _SFR_IO_ADDR(PLLCSR), r17     ; Store r17 to the PLL Control and Status Register (PLLCSR)
+#endif
       ; Wait for PLL Lock Detector to assert
       ; while (!(USB_PLL_IsReady()));
 wait_pll_lock:
@@ -540,7 +576,7 @@ exit_bootloader:
 
       ; NOTE!! This part of the code assumes MCUSR has already been cleared
 
-      cbi         _SFR_IO_ADDR(LED_PORT), LED_BIT ; Set IO register as OFF for LED
+      LED_OFF                                   ; Trun off LED before exiting
       ; Enable WDT, ~250 ms timeout (force a timeout to reset the AVR)
       ldi         r17, _BV(WDE) | _BV(WDP2)     ; Load r17 with the value needed to set the desired Watchdog Configuration (WDCE = 0, not set!)
                                                 ; Write the WDE and Watchdog prescaler bits (WDP); System Reset Mode (WDE = 1) and ~250 ms timeout (WDP2 = 1)
@@ -818,7 +854,7 @@ GET_DESCRIPTOR:
       ; [RAMPZ:]Z, and the length into r16
 
       ; ZH: preset constant pointing to the beginning of the bootloader
- 
+
       ; High byte of wValue for GET_DESCRIPTOR transactions specifies Descriptor Type
       cpi         reg_wValueH, 0x01             ; Compare high byte of wValue with value 1;
       breq        send_device_descriptor        ; If high byte of wValue is 0x01 (Device Descriptor), jump to handle that
@@ -835,7 +871,7 @@ GET_DESCRIPTOR:
       ; rjmp        UNHANDLED_SETUP_REQUEST       ; If the requested descriptor is not supported jump to UNHANDLED_SETUP_REQUEST
 
 send_device_descriptor:
-      sbi         _SFR_IO_ADDR(LED_PORT), LED_BIT ; Set IO register as ON for LED
+      LED_ON                                    ; Turn on LED just before sending device ID
                                                 ; We only load the lower portion (lo8) of the address of the descritor,
                                                 ; the higher portion is common for all descriptors
       ldi         ZL, lo8(device_descriptor)    ; Load ZL with the least significant 8 bits of device_descriptor

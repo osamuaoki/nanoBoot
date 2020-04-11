@@ -59,9 +59,9 @@ You can start this bootloader by connecting the board to the PC with USB cable a
 
 If this bootloader is started, you should see "Atmel".
 
-Please note, this bootloader turns on LED upon starting.
+Please note, now this bootloader turns on LED just before sending device ID.  Thus monitoring of USB is now optional.
 
-(Sometimes LED is on but the loader sign as "Atmel" doesn't show up on `lsusb`. If so, try more reset button presses.)
+(If LED doesn't turn on even after 10 second wait for any reason, press the RESET button again.)
 
 Then program MCU with, e.g., a `LED.hex` firmware as:
 
@@ -69,6 +69,8 @@ Then program MCU with, e.g., a `LED.hex` firmware as:
  $ sudo hid_bootloader_cli -mmcu=atmega32u4 -v LED.hex
 ```
 Please note, this bootloader turns off LED upon finish programming.
+
+(Pressing the RESET button during active bootloader execution seems to halt the bootloader.  This seems to be the reason you need to press the RESET button again.)
 
 ## Documentation
 

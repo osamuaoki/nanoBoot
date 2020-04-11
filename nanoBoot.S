@@ -64,7 +64,7 @@
 ; R2  =  0 (common constant, use instead of traditional R1)
 ; R3  =  1 (common constant, number is used constantly in the code)
 ; R4  =  copy of MCUSR (MCU Status Register)
-;     =  8  (3 occurances)
+;     =  8  (3 occurances) _BV(RXSTPE) _BV(EORSTE) 1<<3 -- no 1 command to set R5
 ;     =  0x12 (3 occurances)
 ;     =  0x18 (2 occurances)
 ;     =  0x40 (2 occurances)
@@ -141,7 +141,7 @@
 ;
 ; To facilitate coding, we will also use the Y register to point to the first Extended IO register;
 ; We can then use LDD / STD (Y+oU....) to address USB registers (USB_BASE + relative offset)
-; (These are used only in start-up and exit routines when USB is not acrtive)
+; (These are used only in start-up and exit routines when USB is not active)
 #define EIO_BASE     WDTCSR
 #define oWDTCSR      (WDTCSR  - EIO_BASE)
 #define oCLKPR       (CLKPR   - EIO_BASE)
@@ -154,16 +154,14 @@
 # define BOOT_ADDRESS 0
 #endif
 
-; For debugging purposes
-.equ     LED_PIN, 6
-
       .section    .vectors
 
       ; We still want the reset vector to jump to "main"
       .global     reset_vector
 
 reset_vector:
-      cli                     ; Possibly unnecessary, maybe do something else?
+      cli                     ; Clear Global Interrupt Flag
+                              ; Possibly unnecessary, maybe do something else?
       clr         rZERO       ; Initialize rZERO (R2 register = zero)
       rjmp        main        ; Jump to main
 
@@ -339,17 +337,17 @@ main:
       ; Disable Watchdog Timer
       mov         r17,  rZERO                   ; Load r17 with zero to disable the Watchdog Timer completely
 
-      rcall       set_watchdog_timer            ; Call the subroutine that sets the wathdog timer with the values loaded in r17
+      rcall       set_watchdog_timer            ; Call the subroutine that sets the watchdog timer with the values loaded in r17
 
 ; check_reset_flags:
       sbrs        rMCUSR, EXTRF                 ; Skip the next instruction if EXTRF is set (if External Reset Flag, skip next instruction, go to run_bootloader)
+                                                ; The EXTRF bit is reset by a Power-on Reset, or by writing a logic zero to the flag.
 
 run_application:                                ; We get here if the cause of the reset was anything but an Extenal Reset (push-button)
       jmp         0                             ; Simply jump to 0x0000 (application) IMPORTANT NOTE!! This CANNOT be an 'rjmp'!!
 
 run_bootloader:
-      sbi         _SFR_IO_ADDR(LED_CONF), LED_PIN ; Set IO register as output for LED
-      sbi         _SFR_IO_ADDR(LED_PORT), LED_PIN ; Set IO register as ON for LED
+      sbi         _SFR_IO_ADDR(LED_CONF), LED_BIT ; Set IO register as output for LED
       set                                       ; Initialize BootLoaderActive flag (T flag in SREG)
 
 
@@ -362,9 +360,9 @@ run_bootloader:
 
 #if (BOOT_ADDRESS != 0)
       ldi         r17, _BV(IVSEL)               ; Load r17 with the value needed to set the Interrupt Vectors to the beginning of the Boot Loader section of the Flash
-                                                ; Set a logic one to the Interrupt Vector Select bit (IVSEL); for this to work, the Vector Change Enable bit (IVCE) MUST be set to logic zero!
+                                                ; Set a logic one to the Interrupt Vector Select bit (IVSEL: bit 1); for this to work, the Vector Change Enable bit (IVCE: bit 0) MUST be set to logic zero!
 
-                                                ; Set a logic one to the Interrupt Vector Change Enable bit (IVCE)
+                                                ; Set a logic one to the Interrupt Vector Change Enable bit (IVCE: bit 0)
       out         _SFR_IO_ADDR(MCUCR), rONE     ; Store MCU Control Register (MCUCR) with the value needed to "unlock" the Interrupt Vector Change Configuration
       out         _SFR_IO_ADDR(MCUCR), r17      ; Store r17 to the MCU Control Register (MCUCR)
 #endif
@@ -473,7 +471,8 @@ run_bootloader:
       ; PLLCSR = (1 << PINDIV);
       ; PLLCSR = ((1 << PINDIV) | (1 << PLLE));
       ldi         r17, _BV(PINDIV)              ; Load r17 with the value needed to set the PLL input prescaler to generate the 8MHz input clock for the PLL
-                                                ; When using a 16MHz clock source, PINDIV PLL Input Prescaler (PINDIV) bit must be set to 1 before enabling PLL
+                                                ; When using a 16MHz clock source, PINDIV PLL Input Prescaler (PINDIV bit 4) bit must be   set to 1 before enabling PLL R17=0x10
+                                                ; When using a  8MHz clock source, PINDIV PLL Input Prescaler (PINDIV bit 4) bit must be reset to 0 before enabling PLL
       out         _SFR_IO_ADDR(PLLCSR), r17     ; Store r17 to the PLL Control and Status Register (PLLCSR)
 
       ldi         r17, (_BV(PINDIV) | _BV(PLLE)); Load r17 with the value needed to enable the PLL, set PLL Enable bit (PLLE), we are also setting PINDIV to keep the PLL input prescaler configuration
@@ -541,7 +540,7 @@ exit_bootloader:
 
       ; NOTE!! This part of the code assumes MCUSR has already been cleared
 
-      cbi         _SFR_IO_ADDR(LED_PORT), LED_PIN ; Set IO register as OFF for LED
+      cbi         _SFR_IO_ADDR(LED_PORT), LED_BIT ; Set IO register as OFF for LED
       ; Enable WDT, ~250 ms timeout (force a timeout to reset the AVR)
       ldi         r17, _BV(WDE) | _BV(WDP2)     ; Load r17 with the value needed to set the desired Watchdog Configuration (WDCE = 0, not set!)
                                                 ; Write the WDE and Watchdog prescaler bits (WDP); System Reset Mode (WDE = 1) and ~250 ms timeout (WDP2 = 1)
@@ -836,6 +835,7 @@ GET_DESCRIPTOR:
       ; rjmp        UNHANDLED_SETUP_REQUEST       ; If the requested descriptor is not supported jump to UNHANDLED_SETUP_REQUEST
 
 send_device_descriptor:
+      sbi         _SFR_IO_ADDR(LED_PORT), LED_BIT ; Set IO register as ON for LED
                                                 ; We only load the lower portion (lo8) of the address of the descritor,
                                                 ; the higher portion is common for all descriptors
       ldi         ZL, lo8(device_descriptor)    ; Load ZL with the least significant 8 bits of device_descriptor

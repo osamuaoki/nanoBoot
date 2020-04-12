@@ -54,29 +54,21 @@
 #define LED_BIT   6
 #define LED_CONF  DDRD
 #define LED_PORT  PORTD
-#define LED_ON    sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
-#define LED_OFF   cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
 
 ; LED is on C7 for Leonardo/Nano compatible board (Adjust for other board)
 ;#define LED_BIT   7
 ;#define LED_CONF  DDRC
 ;#define LED_PORT  PORTC
-;#define LED_ON    sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
-;#define LED_OFF   cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
 
 ; LED (TX) is on D5 for Pro Micro compatible board (Adjust for other board)
 ;#define LED_BIT   5
 ;#define LED_CONF  DDRD
 ;#define LED_PORT  PORTD
-;#define LED_ON    cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
-;#define LED_OFF   sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
 
 ; LED (RX) is on B3 for Pro Micro compatible board (Adjust for other board)
 ;#define LED_BIT   3
 ;#define LED_CONF  DDRB
 ;#define LED_PORT  PORTB
-;#define LED_ON    cbi _SFR_IO_ADDR(LED_PORT), LED_BIT
-;#define LED_OFF   sbi _SFR_IO_ADDR(LED_PORT), LED_BIT
 
 ; SW assumptions:
 
@@ -576,7 +568,7 @@ exit_bootloader:
 
       ; NOTE!! This part of the code assumes MCUSR has already been cleared
 
-      LED_OFF                                   ; Trun off LED before exiting
+      cbi         _SFR_IO_ADDR(LED_PORT), LED_BIT ; Trun off LED before exiting
       ; Enable WDT, ~250 ms timeout (force a timeout to reset the AVR)
       ldi         r17, _BV(WDE) | _BV(WDP2)     ; Load r17 with the value needed to set the desired Watchdog Configuration (WDCE = 0, not set!)
                                                 ; Write the WDE and Watchdog prescaler bits (WDP); System Reset Mode (WDE = 1) and ~250 ms timeout (WDP2 = 1)
@@ -871,7 +863,7 @@ GET_DESCRIPTOR:
       ; rjmp        UNHANDLED_SETUP_REQUEST       ; If the requested descriptor is not supported jump to UNHANDLED_SETUP_REQUEST
 
 send_device_descriptor:
-      LED_ON                                    ; Turn on LED just before sending device ID
+      sbi         _SFR_IO_ADDR(LED_PORT), LED_BIT ; Turn on LED just before sending device ID
                                                 ; We only load the lower portion (lo8) of the address of the descritor,
                                                 ; the higher portion is common for all descriptors
       ldi         ZL, lo8(device_descriptor)    ; Load ZL with the least significant 8 bits of device_descriptor

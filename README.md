@@ -87,7 +87,9 @@ In `Makefile`:
 
 In `nanoBoot.S`:
 
-* Adjust `#define LED_BIT`, `#define LED_CONF`, `#define LED_PORT`, `#define LED_ON`, and `#define LED_OFF` for each board.  Default is Teensy 2.0 setting.
+* Adjust `#define LED_BIT`, `#define LED_CONF`, and `#define LED_PORT` for each board.  Default is Teensy 2.0 setting.
+
+LED ON/OFF behavior becomes reversed for board such as Teensy 1.0 and Pro Micro on which IO pin is connected to LED-cathode side and LED-anode side is connected to Vcc(5V/3V) side.
 
 ## Documentation
 

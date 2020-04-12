@@ -330,6 +330,7 @@ main:
 ; = Initialize constants
 ; =================================================================
       ; Set R3=rONE
+      clr         rONE                          ; Initialize rONE as 0 (application may have set this before RESET)
       inc         rONE                          ; Initialize rONE  (R3 register = one)
       ; Set XH=R27 to 0 = hi8(any register)
       ;     XL=18 for registers R18-...

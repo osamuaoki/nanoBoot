@@ -848,8 +848,6 @@ GET_DESCRIPTOR:
       ; ZH: preset constant pointing to the beginning of the bootloader
 
       ; High byte of wValue for GET_DESCRIPTOR transactions specifies Descriptor Type
-      cpi         reg_wValueH, 0x01             ; Compare high byte of wValue with value 1;
-      breq        send_device_descriptor        ; If high byte of wValue is 0x01 (Device Descriptor), jump to handle that
       cpi         reg_wValueH, 0x02             ; Compare high byte of wValue with value 2;
       breq        send_config_descriptor        ; If high byte of wValue is 0x02 (Configuration Descriptor), jump to handle that
       cpi         reg_wValueH, 0x21             ; Compare high byte of wValue with value 0x21;
@@ -860,6 +858,9 @@ GET_DESCRIPTOR:
       ; If needed, include other descriptors here
 
       ; @SAVE_SPACE: I was able to comment this out and things still work, but it's probably bad (saves two bytes)
+      ;  ; The following 2 lines are also dropped since we are skipping "rjmp UNHANDLED_SETUP_REQUEST"
+      ; cpi         reg_wValueH, 0x01             ; Compare high byte of wValue with value 1;
+      ; breq        send_device_descriptor        ; If high byte of wValue is 0x01 (Device Descriptor), jump to handle that
       ; rjmp        UNHANDLED_SETUP_REQUEST       ; If the requested descriptor is not supported jump to UNHANDLED_SETUP_REQUEST
 
 send_device_descriptor:
